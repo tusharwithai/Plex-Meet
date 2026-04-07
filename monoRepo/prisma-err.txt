@@ -1,0 +1,21 @@
+Prisma schema loaded from prisma\schema.prisma.
+
+Error: Prisma schema validation - (validate wasm)
+Error code: P1012
+[1;91merror[0m: [1mThe datasource property `url` is no longer supported in schema files. Move connection URLs for Migrate to `prisma.config.ts` and pass either `adapter` for a direct database connection or `accelerateUrl` for Accelerate to the `PrismaClient` constructor. See https://pris.ly/d/config-datasource and https://pris.ly/d/prisma7-client-config[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:3[0m
+[1;94m   | [0m
+[1;94m 2 | [0m  provider  = "postgresql"
+[1;94m 3 | [0m  [1;91murl       = "postgresql://postgres.qbyaumldmgwwiymlwwyj:qwerty%40123Qsupabase@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"[0m
+[1;94m   | [0m
+[1;91merror[0m: [1mThe datasource property `directUrl` is no longer supported in schema files. Move connection URLs to `prisma.config.ts`. See https://pris.ly/d/config-datasource[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:4[0m
+[1;94m   | [0m
+[1;94m 3 | [0m  url       = "postgresql://postgres.qbyaumldmgwwiymlwwyj:qwerty%40123Qsupabase@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+[1;94m 4 | [0m  [1;91mdirectUrl = "postgresql://postgres.qbyaumldmgwwiymlwwyj:qwerty%40123Qsupabase@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"[0m
+[1;94m   | [0m
+
+Validation Error Count: 2
+[Context: validate]
+
+Prisma CLI Version : 7.6.0

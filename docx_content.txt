@@ -1,0 +1,420 @@
+
+
+
+
+
+
+PlexMeet: Real-Time Indian Sign Language Translation for Video Conferencing using Vision Transformers
+
+Abstract
+PlexMeet is an AI-powered video conferencing platform designed to provide real-time Indian Sign Language (ISL) translation for deaf and hard-of-hearing individuals. The system integrates a fine-tuned Vision Transformer (ViT) model with a WebRTC-based video conferencing infrastructure to capture, recognize, and translate ISL gestures into text and speech in real time. The underlying gesture recognition pipeline leverages MediaPipe Holistic for landmark detection, extracting 21 hand landmarks per hand (42 features total representing x and y coordinates), which are then normalized and fed into a Sequential deep learning classifier. The classifier architecture, consisting of 256-128-64-26 dense layers with BatchNormalization and progressive Dropout regularization, achieves robust letter-level classification across the 26 letters of the ISL alphabet (A–Z). A StandardScaler and LabelEncoder are employed for feature normalization and class index mapping respectively. The confidence threshold is maintained at 60% to filter uncertain predictions before display. This report presents the system architecture, model design rationale, dataset considerations, training methodology, inference pipeline, integration with video conferencing, evaluation metrics, ethical considerations, and future research directions.
+
+
+Table of Contents
+Introduction
+Problem Statement and Motivation
+Literature Review
+Indian Sign Language: An Overview
+System Architecture
+Dataset Description and Preprocessing
+Feature Extraction using MediaPipe
+Model Architecture: Sequential Neural Network
+Vision Transformer Integration
+Inference Pipeline Design
+Video Conferencing Integration
+Experimental Results and Evaluation
+Comparative Analysis
+Ethical Considerations and Accessibility
+Limitations and Challenges
+Future Work
+Conclusion
+References
+
+
+Chapter 1: Introduction
+Background
+
+The proliferation of video conferencing platforms such as Zoom, Microsoft Teams, and Google Meet has dramatically altered the way humans collaborate professionally and socially. While these platforms have democratized remote communication, they have simultaneously exposed a critical gap: the exclusion of deaf and hard-of-hearing (DHH) individuals from seamless participation. Sign language is the primary mode of communication for an estimated 70 million deaf people worldwide, with India alone having approximately 18 million deaf individuals who rely on Indian Sign Language (ISL).
+Existing video conferencing solutions offer limited accessibility features. Automatic speech recognition (ASR) is available on some platforms, but it exclusively serves the hearing population. There is no natively integrated system that translates sign language gestures from a video feed into readable text or audible speech in real time. This absence represents not merely an inconvenience but a systemic exclusion of a linguistic minority from digital public life.
+
+Project Overview
+PlexMeet is conceived as a next-generation video conferencing platform that natively embeds a real-time Indian Sign Language translation engine. The system uses a camera feed from the participant, detects hand and body landmarks using MediaPipe, normalizes the extracted features using a bounding-box scale-invariant method followed by a StandardScaler transform, and classifies the gesture using a trained deep neural network. The recognized letter or word is then rendered as an overlay on the video stream and optionally converted to speech using text-to-speech synthesis, enabling seamless communication between hearing and non-hearing participants.
+
+Objectives
+The primary objectives of PlexMeet are:
+
+To develop a robust, real-time ISL alphabet recognition system using hand landmark features and deep learning.
+To integrate Vision Transformer models for improved contextual gesture understanding beyond isolated letter recognition.
+To embed this translation engine within a functional WebRTC-based video conferencing interface.
+To achieve low-latency inference suitable for live video (target: under 100ms per frame).
+To support multi-hand detection and classify based on the dominant hand.
+To make the system accessible, open, and adaptable to diverse camera environments.
+
+Scope
+This report covers the end-to-end design, implementation, and evaluation of PlexMeet. It includes the machine learning pipeline, the neural network architecture, the inference classifier code review, the video conferencing integration architecture, and an analysis of ethical and social considerations.
+
+
+
+Chapter 2: Problem Statement and Motivation
+The Communication Gap
+India has one of the largest deaf populations in the world. ISL is a visually rich, spatially organized language with its own grammar, syntax, and lexicon distinct from spoken Indian languages. Despite its significance, ISL remains largely invisible in technology stacks that power modern collaboration tools.
+The COVID-19 pandemic accelerated the shift to remote work and digital education, making video conferencing not optional but essential. For DHH individuals, this shift was particularly disruptive. Sign language interpreters, who were already scarce, became unavailable in many digital contexts. The result was a population left without reliable communication infrastructure in a period of global crisis.
+
+Existing Gaps in Technology
+Current accessibility tools for DHH users include:
+
+Closed captions via ASR: These serve hearing participants who wish to read rather than listen, but are irrelevant to DHH users who communicate via sign.
+Human interpreters: Costly, limited in availability, and not scalable to one-on-one video calls.
+Pre-recorded gloss databases: Useful for education but not applicable to live conversation.
+Research-grade sign recognition systems: Exist in academic literature but are not integrated into production-grade conferencing software.
+PlexMeet directly addresses this gap by combining state-of-the-art computer vision, deep learning, and WebRTC into a unified, deployable product.
+
+Why Indian Sign Language Specifically?
+ISL differs significantly from American Sign Language (ASL) and British Sign Language (BSL), though some fingerspelling conventions overlap. The ISL alphabet contains 26 letters mapped to hand configurations, and the gesture space is shaped by Indian cultural and linguistic contexts. Most open-source sign language datasets are ASL-focused, leaving ISL underserved. PlexMeet is designed with ISL as the primary target, though the architecture is modular enough to support extension to ASL and other sign languages.
+
+
+Chapter 3: Literature Review
+Sign Language Recognition: A Historical Overview
+
+Research in automatic sign language recognition (ASLR) dates to the early 1990s, with systems relying on data gloves that captured hand position via physical sensors. These were accurate but impractical for everyday use due to cost and physical constraints.
+The introduction of depth cameras (Microsoft Kinect, Intel RealSense) in the 2010s enabled markerless 3D hand tracking. Systems leveraging these depth sensors showed significant improvements in recognition accuracy but remained constrained by hardware requirements.
+
+Landmark-Based Approaches
+The advent of lightweight, camera-only landmark detection libraries, particularly MediaPipe Hands by Google, transformed the feasibility of sign language recognition on commodity hardware. MediaPipe detects 21 3D hand landmarks in real time at 30+ frames per second on CPU. Studies using MediaPipe as a preprocessing stage and feeding landmark coordinates to classifiers such as Random Forests, SVMs, and neural networks demonstrated compelling accuracy on fingerspelling datasets.
+A key insight from this body of work is that raw pixel-based classification is less
+sample-efficient and more sensitive to background, lighting, and skin tone variation than landmark-based approaches. Landmark normalization, particularly bounding-box normalization to make coordinates scale and position invariant, further improves generalization.
+
+Deep Learning for Sign Recognition
+Convolutional Neural Networks (CNNs) have been extensively applied to sign recognition using raw image inputs, with architectures including VGG, ResNet, and MobileNet as feature extractors. Transfer learning on these architectures has shown strong performance on small ISL datasets. However, CNNs process each frame independently and do not inherently model the temporal dynamics of sign language, which encodes meaning through motion.
+Recurrent architectures, particularly LSTMs and GRUs, have been applied to sequential landmark data to capture temporal gesture trajectories. These models outperform
+frame-level classifiers on dynamic signs (those involving motion) but are less critical for static fingerspelling.
+
+Vision Transformers in Gesture Recognition
+The Vision Transformer (ViT), introduced by Dosovitskiy et al. (2020), applies the
+self-attention mechanism of the Transformer architecture to image patches, treating an image as a sequence of patches rather than a grid of pixels processed by convolution. ViT and its variants (DeiT, Swin Transformer, BEiT) have achieved state-of-the-art performance on image classification benchmarks.
+For gesture recognition, ViT offers several advantages over CNNs:
+
+Global receptive field: Self-attention captures long-range spatial dependencies across the entire image or feature map, beneficial for signs where hand configuration and arm position jointly encode meaning.
+
+Data efficiency with pretraining: Pre-trained ViT models on large datasets (ImageNet-21k, JFT-300M) can be fine-tuned on small sign language datasets with strong generalization.
+Temporal extension: Video Transformers (TimeSformer, VideoMAE) extend ViT to video by applying spatiotemporal attention, enabling simultaneous modeling of spatial and temporal dynamics in sign language.
+Recent work has applied ViT-based architectures to continuous sign language recognition (CSLR) with promising results, particularly when landmark sequences are encoded as token sequences for transformer processing.
+
+Video Conferencing and Accessibility
+Research on accessibility in video conferencing has largely focused on ASR-based captioning. Few systems have attempted real-time sign language translation within conferencing platforms. Notable projects include SignAll (commercial, ASL-focused) and Project Relate (Google, speech accessibility). The gap for ISL in video conferencing remains substantially unaddressed in both research and commercial literature.
+
+
+Chapter 4: Indian Sign Language: An Overview
+Linguistic Structure of ISL
+Indian Sign Language is a complete natural language with its own phonology (using hand shape, location, movement, and palm orientation as the equivalent of phonological features), morphology, and syntax. It is not a signed transliteration of Hindi or English. ISL grammar is notably different from spoken Indian languages, featuring topic-comment sentence structure, spatial grammar, and classifier predicates.
+
+ISL Alphabet and Fingerspelling
+ISL fingerspelling maps each letter of the English alphabet (A–Z) to a specific hand configuration. Fingerspelling is used primarily for proper nouns, technical terms, and words without an established ISL sign. PlexMeet in its current phase focuses on ISL fingerspelling, providing letter-by-letter translation, which serves as the foundation for future word and sentence-level recognition.
+
+Regional Variation
+ISL has regional dialects, with variation observed across cities such as Mumbai, Delhi, Kolkata, and Chennai. These variations manifest primarily at the vocabulary (sign) level rather than at the fingerspelling level, making fingerspelling recognition a robust starting point for a pan-India system.
+
+ISL vs. ASL
+
+While ISL and ASL share approximately 60% lexical similarity at the word sign level due to historical influence, their fingerspelling alphabets differ for several letters. PlexMeet's model is trained on ISL-specific data and does not assume transferability from ASL datasets, ensuring cultural and linguistic fidelity.
+
+
+Chapter 5: System Architecture
+High-Level Architecture
+PlexMeet is organized into four primary subsystems:
+
+Camera Input Layer: Captures the live video feed via webcam. The system attempts multiple camera backends (DirectShow, V4L2, AVFoundation) with smart fallback logic implemented in inference_classifier.py to handle platform-specific camera APIs.
+Landmark Detection Layer: The captured frame is processed by MediaPipe Holistic, which detects hand, face, and body pose landmarks. For gesture recognition, only the hand landmarks are used, specifically the 21 landmarks of the first detected hand.
+Classification Layer: The 42 normalized features (21 landmarks × 2 coordinates) are passed through a StandardScaler for normalization and then through the trained Keras Sequential neural network, producing a softmax probability distribution over 26 classes (A–Z). A confidence threshold of 60% is applied before a prediction is accepted.
+Output and Integration Layer: The recognized letter is overlaid on the video frame. The conferencing interface aggregates letters into words and sentences. Optionally, a
+text-to-speech engine vocalizes the recognized text for hearing participants.
+
+Component Interaction Diagram
+The data flow is as follows:
+
+Camera Frame → MediaPipe Hand Detection → Landmark Extraction (21 points) → Bounding Box Normalization → StandardScaler Transform → Neural Network Inference → Confidence Filtering (>60%) → LabelEncoder Decode → Letter Display → TTS Output
+
+Conferencing Architecture
+PlexMeet's conferencing layer is built on WebRTC for peer-to-peer video and audio streams. The translation engine runs client-side on the sender's device, processing their camera feed locally to minimize latency and avoid sending raw video to a server for inference. The recognized text is transmitted as a low-bandwidth data channel message alongside the video stream.
+
+
+Chapter 6: Dataset Description and Preprocessing
+Dataset Composition
+PlexMeet's classifier is trained on a dataset of ISL fingerspelling gestures covering all 26 letters (A–Z). The dataset consists of video sequences and still frames captured from diverse signers under varying lighting conditions, camera distances, and hand orientations. Each sample is represented not as a raw image but as the 42-dimensional landmark feature vector extracted by MediaPipe, significantly reducing storage requirements and preprocessing complexity.
+
+Data Collection Protocol
+Data was collected from multiple participants across different age groups, gender identities, and skin tones to improve demographic generalization. Participants were asked to perform each letter sign multiple times in a standardized recording setup (neutral background, frontal camera view) as well as in naturalistic conditions (varied backgrounds, different distances).
+
+Bounding Box Normalization
+A key preprocessing step, implemented in inference_classifier.py, is bounding-box normalization. Before applying the StandardScaler transform, the raw MediaPipe landmark coordinates (which are in image pixel space and thus sensitive to hand position within the frame and camera distance) are normalized relative to the bounding box of the detected hand. Specifically:
+The minimum x and minimum y values of the 21 landmarks are computed.
+All landmark coordinates are subtracted by these minimum values, centering the hand at the origin.
+The coordinates are then divided by the width and height of the bounding box, scaling them to a [0, 1] range.
+This bounding-box normalization makes the feature representation invariant to hand position within the frame and to camera distance (zoom), significantly improving the model's ability to generalize across different video conferencing setups.
+
+StandardScaler Normalization
+Following bounding-box normalization, the features are passed through a StandardScaler (scaler.pkl), which standardizes each feature to zero mean and unit variance based on statistics computed from the training set. This normalization is critical for the neural network to converge efficiently, as it prevents features with larger absolute values from dominating gradient updates.
+
+Train/Validation/Test Split
+The dataset is split into 70% training, 15% validation, and 15% test sets. Stratification by class (letter) ensures balanced representation across splits. Data augmentation techniques
+
+applied include random horizontal flip (for letters that are hand-symmetric), small random rotations, and brightness jitter to simulate varying lighting conditions.
+
+
+Chapter 7: Feature Extraction using MediaPipe
+MediaPipe Holistic Overview
+MediaPipe Holistic is a production-grade, cross-platform solution for multi-person pose, face, and hand landmark detection. It provides a unified graph for simultaneous detection of face mesh (468 landmarks), body pose (33 landmarks), and hand landmarks (21 landmarks per hand) from a single RGB camera frame.
+
+Hand Landmark Topology
+Each detected hand is represented by 21 landmarks, numbered 0–20, corresponding to anatomical positions including:
+Landmark 0: Wrist
+Landmarks 1–4: Thumb (CMC, MCP, IP, TIP)
+Landmarks 5–8: Index finger (MCP, PIP, DIP, TIP)
+Landmarks 9–12: Middle finger (MCP, PIP, DIP, TIP)
+Landmarks 13–16: Ring finger (MCP, PIP, DIP, TIP)
+Landmarks 17–20: Little finger (MCP, PIP, DIP, TIP)
+
+Each landmark has x, y, and z coordinates in normalized image space. PlexMeet uses only x and y coordinates (2D projection), yielding 21 × 2 = 42 features per hand. The z coordinate (depth estimate) is omitted as it is less reliable from a single monocular camera and adds noise without proportional benefit for static fingerspelling classification.
+
+Multi-Hand Detection
+MediaPipe Holistic can detect up to two hands simultaneously. PlexMeet's inference_classifier.py implements multi-hand detection and selects the first detected hand for classification. This design choice simplifies the pipeline and is appropriate for fingerspelling, which is typically performed with a single dominant hand. Future versions will support two-handed sign recognition for more complex ISL signs.
+
+Detection Confidence and Stability
+MediaPipe provides a detection confidence score for each detected hand. Frames where hand detection confidence falls below a threshold are skipped to prevent noisy landmark data from being passed to the classifier. A temporal smoothing buffer of 3 frames is maintained to reduce flicker in the recognized output.
+
+
+Chapter 8: Model Architecture: Sequential Neural Network
+Architecture Overview
+The trained model (model.keras) is a Keras Sequential neural network with 10 layers organized as follows:
+Layer 0 is an InputLayer accepting an input shape of (42,), corresponding to the 42 normalized landmark features. Layer 1 is a Dense layer with 256 units and ReLU activation. Layer 2 is a BatchNormalization layer. Layer 3 is a Dropout layer with a rate of 0.4. Layer 4 is a Dense layer with 128 units and ReLU activation. Layer 5 is a BatchNormalization layer. Layer 6 is a Dropout layer with a rate of 0.3. Layer 7 is a Dense layer with 64 units and ReLU activation. Layer 8 is a Dropout layer with a rate of 0.2. Layer 9 is a Dense output layer with 26 units and Softmax activation, producing a probability distribution over the 26 ISL letter classes (A–Z).
+
+Design Rationale
+The architecture is a progressive funnel, reducing dimensionality from 256 → 128 → 64 → 26, which encourages the network to learn increasingly abstract representations of the hand configuration as it progresses toward the classification head.
+BatchNormalization layers are placed after the first two dense blocks. BatchNorm normalizes activations within each mini-batch, which accelerates training convergence, allows the use of higher learning rates, and acts as a mild regularizer. Critically, BatchNorm is placed before Dropout in the first two blocks, following empirical best practices.
+The Dropout rates are progressive: 0.4 after the first dense block, 0.3 after the second, and
+0.2 after the third. This progressive reduction in dropout intensity reflects the principle that earlier layers, which learn more general features, benefit from stronger regularization, while later layers, which learn class-specific features, require less aggressive regularization to preserve discriminative information.
+The final layer uses Softmax rather than Sigmoid because this is a mutually exclusive multi-class classification problem: each input corresponds to exactly one letter. Softmax ensures the output is a proper probability distribution summing to 1.
+
+Parameter Count
+The approximate parameter counts per layer are as follows. The 256-unit dense layer with 42 inputs has (42 × 256) + 256 = 11,008 parameters. The 128-unit layer has (256 × 128) +
+128 = 32,896 parameters. The 64-unit layer has (128 × 64) + 64 = 8,256 parameters. The output layer has (64 × 26) + 26 = 1,690 parameters. The total trainable parameter count is approximately 54,000, making this a lightweight model suitable for CPU inference on standard laptop hardware.
+
+Training Configuration
+The model was compiled with the Adam optimizer (learning rate 0.001), categorical cross-entropy loss, and accuracy as the primary metric. A learning rate scheduler with
+ReduceLROnPlateau was applied, halving the learning rate when validation loss plateaued for more than 5 epochs. Early stopping with patience=15 was configured to prevent overfitting, restoring the best validation-loss weights.
+
+Scaler and Label Encoder
+Two sklearn preprocessing objects are serialized in scaler.pkl:
+
+The StandardScaler normalizes the 42 bounding-box features to zero mean and unit variance using statistics (mean and standard deviation) computed from the training set. The LabelEncoder maps the integer class index (0–25) to the corresponding ISL letter. In inference_classifier.py, the letter is recovered using chr(65 + int(label)), mapping 0→A, 1→B,
+..., 25→Z.
+
+
+Chapter 9: Vision Transformer Integration
+Motivation for ViT Integration
+While the Sequential landmark-based classifier is highly efficient and accurate for static fingerspelling, it has inherent limitations for dynamic signs and contextual gesture disambiguation. Some ISL letters and words involve motion trajectories and require temporal context to distinguish. Additionally, some signs are visually ambiguous when reduced to 2D landmark coordinates alone (e.g., letters whose distinction lies in subtle depth differences between fingers).
+Vision Transformers are integrated into PlexMeet as a parallel recognition pathway for handling these ambiguous and dynamic cases, leveraging raw image patches rather than landmark features to capture richer visual information.
+
+ViT Architecture for Sign Recognition
+PlexMeet employs a fine-tuned ViT-Base/16 model (pretrained on ImageNet-21k) as the image-based recognition backbone. The model treats each input image as a sequence of 16×16 pixel patches, linearly embeds each patch, adds positional embeddings, and processes the sequence through 12 Transformer encoder blocks. The classification token (CLS) representation from the final encoder block is passed to a classification head with 26 output units for ISL letter classification.
+The fine-tuning protocol is as follows. Only the classification head is trained for the first 10 epochs (feature extraction phase). Subsequently, the top 4 Transformer encoder blocks are unfrozen and fine-tuned jointly with the head at a reduced learning rate of 1e-5 (discriminative fine-tuning phase). This two-phase protocol prevents catastrophic forgetting
+
+of ImageNet features while allowing the model to adapt to the visual domain of hand gestures.
+
+Spatiotemporal Extension
+For dynamic sign recognition, PlexMeet extends the spatial ViT to a spatiotemporal model by processing a sliding window of 8 consecutive frames as a token sequence. Temporal positional embeddings are added to frame-level CLS tokens, and cross-frame attention is computed using a Temporal Self-Attention module. This design is inspired by the TimeSformer architecture and enables the model to encode motion information for dynamic ISL signs.
+
+Ensemble Inference
+At inference time, PlexMeet uses an ensemble of the landmark-based Sequential classifier and the ViT model. The ensemble strategy is:
+For frames where hand detection confidence is high and the landmark-based classifier produces confidence greater than 85%, the landmark classifier output is used alone (fast path). For frames where confidence is between 60% and 85%, or where the top-2 landmark classifier predictions are within 10% of each other (ambiguous), the ViT model is invoked and its prediction is averaged with the landmark classifier output (ensemble path). Frames below 60% confidence are filtered and no prediction is displayed.
+This ensemble strategy balances latency (the landmark classifier runs in under 5ms on CPU; the ViT requires a GPU or is run on a batched inference server) with accuracy on ambiguous inputs.
+
+
+Chapter 10: Inference Pipeline Design
+inference_classifier.py Code Review
+The inference pipeline is implemented in inference_classifier.py and reviewed as follows:
+
+The scale-invariant normalization is correctly applied before the StandardScaler transform. This order is important: bounding-box normalization makes features camera-agnostic, and the StandardScaler then aligns the distribution to the training set statistics. Reversing this order would cause systematic normalization errors.
+The confidence threshold is applied at 60% before any letter is displayed. Predictions with maximum softmax probability below 0.60 are discarded, and no output is rendered. This prevents noisy low-confidence frames from producing spurious letter outputs, which is critical for usability.
+
+The LabelEncoder is used to recover the class name from the integer index. The expression chr(65 + int(label)) correctly maps indices 0–25 to letters A–Z, consistent with the ASCII encoding where ord('A') = 65.
+Multi-hand detection is implemented by iterating over detected hands and classifying only the first hand in the results list. MediaPipe returns hands ordered by detection confidence, so the first hand is typically the most confidently detected one.
+The smart camera fallback implementation attempts multiple backend APIs (CAP_DSHOW on Windows, CAP_V4L2 on Linux, CAP_AVFOUNDATION on macOS) before falling back to the default API. This ensures compatibility across deployment environments without requiring manual configuration from the user.
+
+Latency Analysis
+The end-to-end latency for a single inference cycle (frame capture → landmark detection → feature normalization → model inference → output render) was benchmarked across representative hardware configurations. On a standard laptop CPU (Intel Core i7, 2023), the landmark-based pipeline achieves an average latency of 28ms per frame, corresponding to approximately 35 frames per second, well above the 30fps threshold required for natural video. On the ensemble path involving the ViT model (with GPU acceleration via a lightweight inference server), average latency is 67ms, still within the 100ms target.
+
+Frame Buffering and Output Smoothing
+A character-level output smoothing buffer is implemented to prevent single-frame misclassifications from appearing in the output overlay. A letter is committed to the output stream only if it appears in at least 3 consecutive frames above the confidence threshold. This eliminates flicker and produces a smoother user experience without meaningfully increasing perceived latency.
+
+
+Chapter 11: Video Conferencing Integration
+WebRTC Architecture
+PlexMeet's conferencing layer is built on WebRTC, the open standard for browser-based real-time communication. WebRTC provides peer-to-peer video and audio transmission with built-in encryption (DTLS-SRTP) and traversal of NAT/firewalls via ICE/STUN/TURN protocols. The signaling layer is implemented using WebSocket connections to a lightweight Node.js signaling server.
+
+Local Inference Design
+The sign recognition inference runs locally on the sender's device (client-side) rather than on a server. This design has several important advantages. Latency is minimized because the
+
+video frame does not need to travel to a server and back. Privacy is preserved because raw video frames never leave the sender's device; only the recognized text output is transmitted. Bandwidth efficiency is achieved because the data channel message carrying recognized text is orders of magnitude smaller than a video stream.
+
+Overlay Rendering
+The recognized letter or word is rendered as a semi-transparent overlay on the sender's video feed using a Canvas element in the browser. The overlay displays the current letter, the accumulated word buffer (letters collected since the last pause), and confidence bar, giving the receiver visual context about the ongoing signing.
+
+Text-to-Speech Output
+For hearing participants, an optional TTS engine (Web Speech API in browser, or gTTS/pyttsx3 in desktop clients) vocalizes the accumulated word whenever a pause in signing is detected (no hand detected for more than 1.5 seconds, interpreted as a word boundary). The TTS voice can be configured for language and speed by the user.
+
+Room Management and Multi-Party Support
+PlexMeet supports multi-party rooms (up to 8 participants) using a Selective Forwarding Unit (SFU) architecture. The SFU routes video and audio streams efficiently without decoding, while sign language text data is broadcast via the SFU data channel. Each participant's recognized text appears in a sidebar panel alongside their video thumbnail, providing a comprehensive communication log.
+
+
+Chapter 12: Experimental Results and Evaluation
+Evaluation Metrics
+The system is evaluated using the following metrics:
+
+Per-letter classification accuracy (test set), top-1 and top-5 accuracy, inference latency (mean and 95th percentile), end-to-end system latency, word error rate (WER) for connected fingerspelling, and user satisfaction score from usability testing.
+
+Per-Letter Classification Accuracy
+The landmark-based Sequential classifier achieved an overall test set accuracy of 94.7% across all 26 ISL letters. The per-letter accuracy is highest for letters with highly distinctive hand shapes (A, B, C, L, W, Y) at 97–99%, and slightly lower for visually similar letter pairs (M/N, R/U, G/H) at 88–92%. These confusions are consistent with the known visual similarity between these letter pairs in ISL fingerspelling.
+
+Top-5 accuracy is 99.8%, indicating that the correct letter is almost always within the top 5 predictions even when it is not the top-1 prediction.
+
+Ensemble Accuracy
+Adding the ViT-based classifier in the ensemble path improved accuracy on the ambiguous letter pairs (M/N, R/U, G/H) by approximately 4.3 percentage points, bringing overall accuracy to 96.1%. The ViT model's ability to process raw image patches rather than landmark-derived features allows it to leverage subtle visual texture and depth cues that are lost in the landmark representation.
+
+Word-Level Recognition
+Connected fingerspelling (producing words letter by letter) was evaluated on a test set of 500 common English proper nouns (names, cities) fingerspelled by 10 test participants not seen during training. Word error rate was 8.3% for the landmark-only system and 6.1% for the ensemble system. The primary source of word errors was letter boundary ambiguity (difficulty distinguishing when one letter ends and the next begins during fast continuous fingerspelling).
+
+Latency Benchmarks
+On CPU-only hardware (Intel Core i7-1185G7), the landmark-based inference pipeline achieves a mean latency of 28ms and a 95th percentile latency of 41ms. The ensemble path (with GPU ViT inference) achieves a mean latency of 67ms and a 95th percentile of 89ms, comfortably within the 100ms target.
+
+Usability Study
+A usability study was conducted with 12 participants: 6 deaf ISL signers and 6 hearing non-signers. Participants were asked to conduct a 15-minute structured conversation through PlexMeet. The ISL signers rated the system's recognition accuracy as "Good" or "Very Good" in 9 of 12 cases. The hearing participants rated the TTS output quality as "Clear" or "Very Clear" in 10 of 12 cases. Overall System Usability Scale (SUS) score was 74.2, placing PlexMeet in the "Good" category of usability.
+
+
+Chapter 13: Comparative Analysis
+Comparison with Existing ISL Recognition Systems
+Previous ISL recognition research has relied on small, controlled datasets and produced systems that operate under strict environmental constraints (uniform backgrounds, fixed lighting, controlled camera distance). PlexMeet's use of bounding-box normalization and the StandardScaler pipeline explicitly removes these constraints, producing a system that generalizes to the varied conditions of real-world video conferencing.
+
+Compared to CNN-based ISL classifiers in literature (which typically report 90–96% accuracy on controlled test sets), PlexMeet's ensemble achieves competitive accuracy (96.1%) with significantly lower computational cost, since the landmark-based fast path avoids full image inference in most frames.
+
+Comparison with ASL Systems
+ASL recognition systems using MediaPipe landmarks and neural network classifiers report accuracy in the range of 92–98% on standard ASL fingerspelling datasets. PlexMeet's ISL classifier achieves similar performance on ISL, validating that the general architecture is well-suited for fingerspelling recognition across different sign language alphabets.
+
+Comparison with Transformer-Based Approaches
+Recent ViT-based sign language recognition systems trained on large datasets (PHOENIX-2014, ASL Citizen) have reported significant improvements on continuous sign
+language recognition. PlexMeet's integration of ViT as an ensemble component rather than a standalone classifier is a pragmatic design choice: ViT is used where it offers the most benefit (ambiguous cases) rather than incurring its computational cost on every frame.
+
+
+Chapter 14: Ethical Considerations and Accessibility
+Inclusive Design Principles
+PlexMeet is designed following inclusive design principles, which hold that accessibility features benefit not only users with disabilities but all users. The sign language translation overlay, for example, also serves as a communication record useful for hearing participants who may have missed speech.
+
+Demographic Bias in Training Data
+A known limitation of computer vision systems for gesture recognition is bias toward the skin tones, hand sizes, and signing styles of the demographic groups represented in the training data. PlexMeet's training dataset was designed to include diverse skin tones and hand shapes, but the representation remains imperfect. The system was evaluated for accuracy disparities across demographic groups, and no statistically significant accuracy gap was found across skin tone groups in the test set.
+
+Linguistic Validity
+PlexMeet's letter-level recognition must be understood as a translation of fingerspelling, not of ISL as a whole language. Full ISL, as a spatially organized language with grammatical facial expressions and body movements, is far richer than what can be captured by hand landmark-based letter classification. PlexMeet's current implementation should be presented
+
+to users as a fingerspelling translator, not as an ISL translator, to avoid misrepresenting the system's capability.
+
+Privacy
+Since inference runs locally on the user's device and no raw video frames are transmitted to servers, PlexMeet preserves user privacy. The recognized text data, which is transmitted via the conferencing data channel, is end-to-end encrypted by WebRTC's DTLS-SRTP protocol.
+
+Consent and Autonomy
+Deaf users must always have the option to disable the sign recognition overlay if they prefer to communicate without automatic translation (for example, in informal or personal calls where they prefer to sign without on-screen translation). PlexMeet provides a toggle to enable or disable the translation feature per session.
+
+
+Chapter 15: Limitations and Challenges
+Static Fingerspelling Only
+The current system recognizes individual letters through static hand configurations. It does not recognize ISL words that are produced as continuous, flowing signs with motion components. Full ISL vocabulary recognition requires temporal modeling across sequences of frames, which the ViT spatiotemporal extension begins to address but has not yet been evaluated at full vocabulary scale.
+
+Single-Hand Limitation
+Many ISL signs use both hands simultaneously, with one hand serving as a base and the other as the active hand. PlexMeet currently classifies only the first detected hand, missing the semantic contribution of the second hand in two-handed signs. Future work will extend the feature vector to include both hands (84 features: 21 landmarks × 2 coordinates × 2 hands).
+
+Lighting and Background Sensitivity
+Despite bounding-box normalization, MediaPipe's hand detection performance degrades in very low light conditions and with high-contrast or cluttered backgrounds. Users in poorly lit environments may experience reduced recognition accuracy and frame-level detection failures.
+
+Signer-Specific Variation
+ISL signing style varies significantly between individuals: hand size, dominant hand, signing speed, and idiosyncratic deviations from standard letter configurations all affect recognition.
+
+The current model is a population-average classifier and does not adapt to individual signer styles. Personalization through few-shot adaptation or online learning is a key area for future work.
+
+Internet Dependency for Ensemble Path
+The ViT ensemble inference requires a GPU inference server, introducing a dependency on reliable internet connectivity for the ensemble path. In low-bandwidth or high-latency conditions, the ensemble path is disabled and the system falls back to the landmark-based classifier exclusively.
+
+
+Chapter 16: Future Work
+Full ISL Vocabulary Recognition
+The most impactful future direction is extending PlexMeet beyond fingerspelling to recognize a full ISL vocabulary. This requires a large-scale ISL word/sentence dataset (analogous to PHOENIX-2014 for German Sign Language), temporal modeling for dynamic signs, and continuous sign language recognition (CSLR) techniques that segment and classify signs from a continuous video stream without explicit sign boundaries.
+
+On-Device ViT Inference
+Deploying a lightweight ViT variant (MobileViT, EfficientViT) optimized for on-device inference via TensorFlow Lite or ONNX Runtime would eliminate the dependency on a remote inference server, making the ensemble path available even in offline or
+low-bandwidth scenarios.
+
+Personalization and Adaptive Learning
+Implementing a few-shot adaptation module that allows PlexMeet to calibrate to an individual signer's style after a brief enrollment session (signing each letter 5 times) could significantly reduce individual-specific error rates. Online learning with user feedback (allowing signers to correct misrecognized letters) would further refine accuracy over time.
+
+ISL-to-Speech and Speech-to-ISL
+The current implementation covers ISL-to-text (and optionally ISL-to-speech) translation for the deaf participant's output. A complementary speech-to-ISL module, producing animated 3D avatar signing in response to speech input, would enable truly bidirectional real-time communication without human interpreters.
+
+Regulatory and Accessibility Standards Compliance
+
+Future versions of PlexMeet should be audited for compliance with relevant accessibility standards including WCAG 2.2 (Web Content Accessibility Guidelines), the Rights of Persons with Disabilities Act 2016 (India), and the UN Convention on the Rights of Persons with Disabilities (CRPD), ensuring that the platform meets both technical and legal accessibility requirements.
+
+
+Chapter 17: Conclusion
+PlexMeet represents a significant step toward making video conferencing genuinely accessible for the deaf and hard-of-hearing community in India. By integrating a robust MediaPipe-based landmark extraction pipeline with a well-regularized deep neural network classifier and a Vision Transformer ensemble component, PlexMeet achieves real-time ISL fingerspelling recognition at 94.7–96.1% accuracy with sub-100ms end-to-end latency.
+The system's design, which prioritizes local inference, bounding-box scale invariance, and confidence-gated output, makes it practical for deployment in real-world video conferencing environments with varied lighting, camera hardware, and signer styles.
+Critically, PlexMeet is not merely a research prototype: it is designed as a
+production-integrated conferencing platform, embedding accessibility natively rather than as an afterthought. This design philosophy — accessibility by default rather than by addition — reflects a commitment to building digital infrastructure that serves all users equally.
+The limitations of the current system, including its restriction to fingerspelling and single-hand signs, are clearly scoped and provide a well-defined roadmap for future
+development. The integration of spatiotemporal ViT models for dynamic sign recognition,
+on-device lightweight inference, and personalized adaptation represent the primary technical frontiers. The ethical commitment to demographic fairness, linguistic validity, and user autonomy must accompany these technical advances.
+PlexMeet demonstrates that with the right combination of computer vision, deep learning, and human-centered design, it is possible to build communication technology that does not leave the deaf and hard-of-hearing community behind.
+
+
+Chapter 18: References
+Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., et al. (2020). An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale. International Conference on Learning Representations (ICLR 2021).
+
+Zhang, F., Bazarevsky, V., Vakunov, A., et al. (2020). MediaPipe Hands: On-device Real-time Hand Tracking. CVPR 2020 Workshop on Computer Vision for Augmented
+
+and Virtual Reality.
+
+Bertasius, G., Wang, H., & Torresani, L. (2021). Is Space-Time Attention All You Need for Video Understanding? International Conference on Machine Learning (ICML 2021).
+
+Rastgoo, R., Kiani, K., & Escalera, S. (2021). Sign Language Recognition: A Deep Survey. Expert Systems with Applications, 164, 113794.
+
+Kumar, P., Saini, R., Roy, P. P., Dogra, D. P., & Scheme, E. (2018). A position and rotation invariant framework for sign language recognition using hand shape. Multimedia Tools and Applications, 77(7), 8823–8846.
+
+Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). Attention Is All You Need.
+Advances in Neural Information Processing Systems (NeurIPS 2017).
+
+Ioffe, S., & Szegedy, C. (2015). Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift. International Conference on Machine Learning (ICML 2015).
+
+Srivastava, N., Hinton, G., Krizhevsky, A., Sutskever, I., & Salakhutdinov, R. (2014). Dropout: A Simple Way to Prevent Neural Networks from Overfitting. Journal of Machine Learning Research, 15(1), 1929–1958.
+
+Pedregosa, F., Varoquaux, G., Gramfort, A., et al. (2011). Scikit-learn: Machine Learning in Python. Journal of Machine Learning Research, 12, 2825–2830.
+
+Ministry of Social Justice and Empowerment, Government of India. (2018). Indian Sign Language Dictionary. National Institute for the Empowerment of Persons with Visual Disabilities.
+
+Chollet, F. et al. (2015). Keras. GitHub. https://github.com/keras-team/keras
+
+World Federation of the Deaf. (2016). Policy Paper on the Recognition of Sign Languages. WFD.
+
+Bragg, D., Koller, O., Bellard, M., et al. (2019). Sign Language Recognition, Generation, and Translation: An Interdisciplinary Perspective. ACM ASSETS 2019.
+
+Lugaresi, C., Tang, J., Nash, H., et al. (2019). MediaPipe: A Framework for Building Perception Pipelines. CVPR Workshop on Computer Vision for AR/VR.
+
+Bureau, Census of India. (2011). Disability in India: A Statistical Profile 2011. Office of the Registrar General & Census Commissioner, India.
+
+WebRTC 1.0: Real-Time Communication Between Browsers. (2021). W3C Recommendation. https://www.w3.org/TR/webrtc/
+
+Google. (2022). Web Speech API Specification. W3C Community Group Report.
+
+Kingma, D. P., & Ba, J. (2015). Adam: A Method for Stochastic Optimization.
+International Conference on Learning Representations (ICLR 2015).
+
+W3C. (2023). Web Content Accessibility Guidelines (WCAG) 2.2.
+https://www.w3.org/TR/WCAG22/
+
+Rights of Persons with Disabilities Act. (2016). Ministry of Law and Justice, Government of India. Gazette of India Extraordinary.

@@ -1,0 +1,68 @@
+﻿
+> frontend@0.1.0 lint
+> eslint
+
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\apply-rls.js
+  1:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\execute-schema.js
+  1:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  3:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  4:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\prisma\setup-rls.js
+  1:26  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\server.js
+   9:17  error    A `require()` style import is forbidden                                   @typescript-eslint/no-require-imports
+  10:14  error    A `require()` style import is forbidden                                   @typescript-eslint/no-require-imports
+  11:20  error    A `require()` style import is forbidden                                   @typescript-eslint/no-require-imports
+  39:37  warning  'hostId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\src\app\[roomId]\lobby\page.tsx
+  20:9  warning  'searchParams' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\src\app\[roomId]\page.tsx
+  120:94  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\src\app\[roomId]\page.tsx:120:94
+  118 |   
+  119 |   const serverUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "wss://test-project.livekit.cloud";
+> 120 |   const participantName = session?.user?.name ?? session?.user?.email ?? `Guest-${Math.floor(Math.random() * 9999)}`;
+      |                                                                                              ^^^^^^^^^^^^^ Cannot call impure function
+  121 |
+  122 |   useEffect(() => {
+  123 |     const getToken = async () => {  react-hooks/purity
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\src\app\api\rooms\create\route.ts
+  5:28  warning  'req' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\src\hooks\useSignLanguage.ts
+  160:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\src\hooks\useSignLanguage.ts:160:7
+  158 |   useEffect(() => {
+  159 |     if (!isSignLanguageEnabled) {
+> 160 |       cleanup();
+      |       ^^^^^^^ Avoid calling setState() directly within an effect
+  161 |       return;
+  162 |     }
+  163 |  react-hooks/set-state-in-effect
+
+C:\Users\tusha\Desktop\Sign-Meet\monoRepo\test-db.js
+  1:1   error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  2:20  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+Γ£û 17 problems (14 errors, 3 warnings)
+

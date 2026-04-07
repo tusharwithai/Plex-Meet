@@ -1,0 +1,7 @@
+﻿ M package-lock.json
+ M package.json
+ M src/app/[roomId]/page.tsx
+ M src/components/ChatPanel.tsx
+?? src/app/api/
+?? status_out.txt
+?? ts_error.txt
